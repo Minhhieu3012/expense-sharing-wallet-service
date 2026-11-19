@@ -320,15 +320,24 @@ LIMIT 20 OFFSET 0;
 ```sql
 BEGIN;
 
--- Bước 1: Khóa bi quan (Pessimistic Lock) hai bản ghi ví theo thứ tự tăng dần của user_id
--- Việc sắp xếp theo user_id là bắt buộc để ngăn chặn Deadlock khi A trả B cùng lúc B trả A
+-- Bước 1a: Khóa bi quan 2 bản ghi thành viên nhóm theo thứ tự user_id ASC
+-- Mục đích: Tuần tự hóa các giao dịch trả nợ giữa cặp (payer, payee), ngăn chặn việc gửi trùng 2 request cùng lúc vượt quá mức nợ
+SELECT group_id, user_id
+FROM group_members
+WHERE group_id = :group_id AND user_id IN (:payer_id, :payee_id)
+ORDER BY user_id ASC
+FOR UPDATE;
+
+-- Bước 1b: Khóa bi quan hai bản ghi ví theo thứ tự tăng dần của user_id để chống âm số dư và Deadlock
 SELECT id, user_id, balance
 FROM wallets
 WHERE user_id IN (:payer_id, :payee_id)
 ORDER BY user_id ASC
 FOR UPDATE;
 
--- Bước 2: Kiểm tra tại tầng ứng dụng: payer_wallet.balance >= :amount (nếu không đủ -> ROLLBACK)
+-- Bước 2: Sau khi đã giữ khóa, tính lại nợ ròng thực tế trong nhóm và kiểm tra tại tầng ứng dụng:
+-- (a) :amount <= current_net_debt (nếu vượt nợ -> ROLLBACK, trả lỗi 400 OVER_SETTLEMENT_AMOUNT)
+-- (b) payer_wallet.balance >= :amount (nếu không đủ số dư -> ROLLBACK, trả lỗi 400 INSUFFICIENT_WALLET_BALANCE)
 
 -- Bước 3: Cập nhật số dư ví người gửi và người nhận
 UPDATE wallets

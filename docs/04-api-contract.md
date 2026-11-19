@@ -147,7 +147,15 @@ Mọi lỗi phát sinh từ tầng xác thực, kiểm tra dữ liệu đầu v�
   }
   ```
 
-- **Response (`200 OK`):** Trả về cặp `access_token` và `refresh_token` mới.
+- **Response (`200 OK`):** Cấp lại access_token mới (giữ nguyên `refresh_token` hiện tại cho đến khi hết hạn 7 ngày theo cơ chế stateless):
+
+  ```json
+  {
+    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "token_type": "bearer",
+    "expires_in": 1800
+  }
+  ```
 
 ---
 

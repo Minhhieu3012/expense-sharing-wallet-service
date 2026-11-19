@@ -48,7 +48,7 @@
 
 - **`NFR-10` Chuẩn thiết kế RESTful JSON APIs:**
   - Toàn bộ API phải tuân thủ nguyên tắc kiến trúc **REST**, sử dụng đúng ngữ nghĩa của các phương thức HTTP (`GET`, `POST`, `PATCH`, `DELETE`) và định dạng trao đổi dữ liệu thống nhất là **JSON** (`Content-Type: application/json`).
-  - Mọi phản hồi lỗi đều phải trả về theo một cấu trúc JSON chuẩn hóa (gồm `error_code`, `message`, `details`) đi kèm mã trạng thái HTTP chính xác (`400`, `401`, `403`, `404`, `422`, `500`).
+  - Mọi phản hồi lỗi đều phải trả về theo một cấu trúc JSON chuẩn hóa bọc trong object `"error"` (gồm `code`, `message`, `details`) đi kèm mã trạng thái HTTP chính xác (`400`, `401`, `403`, `404`, `409`, `422`, `500`).
 - **`NFR-11` Cơ chế Xác thực JWT & Bảo mật Thông tin Nhạy cảm:**
   - Xác thực người dùng bằng **JWT** (JSON Web Token) theo cơ chế phi trạng thái (stateless): `Access Token` có thời hạn ngắn (**15–30 phút**) để giảm rủi ro lộ lọt, kết hợp `Refresh Token` có thời hạn dài (**7 ngày**) để duy trì phiên đăng nhập.
   - Mật khẩu người dùng tuyệt đối không lưu dưới dạng văn bản thuần (plaintext) và không xuất hiện trong log hệ thống; mật khẩu phải được băm bằng thuật toán một chiều an toàn (`bcrypt` hoặc `argon2`) kèm chuỗi muối ngẫu nhiên (salt).

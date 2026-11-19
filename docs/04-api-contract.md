@@ -138,6 +138,7 @@ Mọi lỗi phát sinh từ tầng xác thực, kiểm tra dữ liệu đầu v�
 #### `1.3. Làm mới Access Token`
 
 - **Endpoint:** `POST /api/v1/auth/refresh` | `[Auth: Public]`
+- **Ràng buộc bảo mật:** Payload của JWT bắt buộc chứa trường `"token_type": "access"` hoặc `"token_type": "refresh"`. Endpoint này chỉ chấp nhận token có `"token_type": "refresh"`; nếu gửi `access_token` hoặc token hết hạn sẽ trả về `401 Unauthorized`.
 - **Request Body:**
 
   ```json
@@ -365,6 +366,7 @@ Mọi lỗi phát sinh từ tầng xác thực, kiểm tra dữ liệu đầu v�
 
 - **Endpoint:** `POST /api/v1/groups/{group_id}/settle` | `[Auth: Bearer - Thành viên nhóm]`
 - **Mục đích:** Thực thi giao dịch chuyển tiền cấn trừ nợ trực tiếp từ ví người gửi sang ví người nhận. Bắt buộc bọc toàn bộ quá trình khóa bản ghi ví, trừ tiền, cộng tiền, tạo bản ghi thanh toán nợ và ghi 2 dòng biến động sổ cái (`SETTLEMENT_OUT`, `SETTLEMENT_IN`) trong một **ACID Transaction** duy nhất.
+- **Ràng buộc:** Số tiền `amount` không được lớn hơn số nợ ròng hiện tại của `payer_user_id` đối với `payee_user_id` trong nhóm; nếu vi phạm trả về `400 Bad Request` (`OVER_SETTLEMENT_AMOUNT`).
 - **Request Body:**
 
   ```json
@@ -402,7 +404,7 @@ Mọi lỗi phát sinh từ tầng xác thực, kiểm tra dữ liệu đầu v�
 #### `6.1. Thống kê tổng chi tiêu nhóm theo danh mục trong tháng`
 
 - **Endpoint:** `GET /api/v1/groups/{group_id}/analytics/monthly` | `[Auth: Bearer - Thành viên nhóm]`
-- **Mục đích:** Thực hiện truy vấn tổng hợp **SQL** (`SUM`, `GROUP BY`) trên **PostgreSQL** và lưu kết quả vào **Redis** với khóa `analytics:group:{group_id}:{year}-{month}` (TTL `900s`). Khóa này tự động bị xóa khi có sự kiện tạo/sửa/xóa khoản chi tại `4.1`.
+- **Mục đích:** Thực hiện truy vấn tổng hợp **SQL** (`SUM`, `GROUP BY`) trên **PostgreSQL** và lưu kết quả vào **Redis** với khóa `analytics:group:{group_id}:{year}-{month}` (TTL `900s`). Khóa này tự động bị xóa khi có sự kiện tạo khoản chi mới tại `4.1`.
 - **Query Parameters:**
   - `year` _(Integer, bắt buộc, ví dụ: `2026`)_
   - `month` _(Integer, bắt buộc, từ `1` đến `12`, ví dụ: `11`)_

@@ -52,7 +52,12 @@ Hệ thống bao gồm 3 nhóm tác nhân chính:
 
 ### Module 6: Công cụ Dòng lệnh (CLI Application)
 
-- **FR-13 — CLI Tính toán & Import sao kê chi tiêu:** Xây dựng công cụ dòng lệnh cho phép đọc file `.csv` chứa danh sách chi tiêu, tự động tính toán phần chia tiền và lưu vào cơ sở dữ liệu.
+- **FR-13 — CLI Tính toán & Import sao kê chi tiêu:** Xây dựng công cụ dòng lệnh cho phép đọc file `.csv` (mã hóa UTF-8) chứa danh sách chi tiêu, tự động validate, tính toán phần chia tiền và lưu vào cơ sở dữ liệu.
+  - **Cấu trúc cột (Header) chuẩn:** `group_id,title,total_amount,paid_by_email,category_code,expense_date,split_type,splits_detail`
+  - **Quy ước cột `splits_detail` (ngăn cách các thành viên bằng dấu `;`):**
+    - Với `EQUAL`: danh sách email người chia (ví dụ: `a@example.com;b@example.com;c@example.com`).
+    - Với `EXACT`: cặp `email:số_tiền` (ví dụ: `a@example.com:120000.00;b@example.com:80000.00`).
+    - Với `PERCENTAGE`: cặp `email:phần_trăm` (ví dụ: `a@example.com:60.00;b@example.com:40.00`).
 - **FR-14 — CLI Sinh dữ liệu giả lập (Data Seeder):** Cho phép chạy lệnh trên terminal để tạo tự động từ 200.000 đến 500.000 bản ghi khoản chi và giao dịch vào PostgreSQL, phục vụ cho việc kiểm thử hiệu năng truy vấn và đánh giá tác dụng của chỉ mục.
 
 ---
@@ -70,4 +75,7 @@ Hệ thống bao gồm 3 nhóm tác nhân chính:
 - **BR-06 — Kiểm soát quyền truy cập tài nguyên (Authorization):**
   - Người dùng chỉ được phép xem thông tin, tạo khoản chi hoặc xem báo cáo của những nhóm mà họ đang là thành viên.
   - Chỉ Group Admin mới có quyền xóa thành viên khỏi nhóm, và hệ thống chỉ cho phép xóa khi thành viên đó đã thanh toán hết toàn bộ công nợ (số dư nợ ròng bằng 0).
-- **BR-07 — Quy tắc đồng bộ Cache (Cache Invalidation):** Ngay sau khi một khoản chi mới được tạo, chỉnh sửa hoặc xóa thành công trong PostgreSQL, hệ thống phải xóa khóa cache báo cáo thống kê tương ứng của nhóm đó trên Redis để tránh trả về dữ liệu cũ (stale data).
+- **BR-07 — Tính bất biến của khoản chi & Quy tắc đồng bộ Cache:** Trong phạm vi MVP, khoản chi sau khi tạo là bất biến (không hỗ trợ sửa hoặc xóa để tránh làm sai lệch công nợ đã thanh toán; nếu nhập sai, người dùng tạo một khoản chi bù trừ). Ngay sau khi một khoản chi mới được tạo thành công trong PostgreSQL, hệ thống phải xóa khóa cache báo cáo thống kê tương ứng của nhóm đó trên Redis để tránh trả về dữ liệu cũ (stale data).
+- **BR-08 — Quy tắc tính công nợ nhóm & Chặn thanh toán vượt mức nợ:**
+  - Hệ thống tính công nợ theo mô hình **Nợ tay đôi trực tiếp (Pairwise Net Debt)** giữa từng cặp thành viên trong nhóm: tổng hợp tất cả khoản chi một bên đã trả hộ bên kia, cấn trừ hai chiều và trừ đi các giao dịch `settlements` đã thanh toán giữa hai người đó.
+  - Trong chức năng thanh toán nợ (`FR-11`), số tiền thanh toán bắt buộc phải lớn hơn `0` và không được vượt quá số nợ ròng hiện tại mà người gửi đang nợ người nhận trong nhóm; nếu vượt quá, hệ thống từ chối giao dịch với lỗi HTTP `400`.

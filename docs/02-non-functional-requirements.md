@@ -37,7 +37,7 @@
 
 - **`NFR-08` Lưu đệm Phía Máy chủ với Redis:**
   - Các báo cáo thống kê chi tiêu theo tháng (`FR-12`) sử dụng nhiều phép tính gộp **SQL** (`SUM`, `GROUP BY`) phải được lưu kết quả trên **Redis** dưới định dạng JSON với thời gian sống (**TTL**) mặc định là **15 phút**.
-  - Áp dụng chiến lược **Cache-Aside (Lazy Loading)** kết hợp **Explicit Cache Invalidation**: hệ thống tự động xóa khóa cache tương ứng ngay khi có giao dịch thêm, sửa hoặc xóa khoản chi trong nhóm để đảm bảo tính nhất quán dữ liệu.
+  - Áp dụng chiến lược **Cache-Aside (Lazy Loading)** kết hợp **Explicit Cache Invalidation**: hệ thống tự động xóa khóa cache tương ứng ngay khi có giao dịch tạo mới khoản chi trong nhóm để đảm bảo tính nhất quán dữ liệu.
 - **`NFR-09` Lưu đệm Giao thức HTTP (HTTP Caching):**
   - Các endpoint cung cấp dữ liệu tham chiếu ít thay đổi (như danh sách danh mục chi tiêu chuẩn `FR-05`) bắt buộc phải trả về các HTTP header chuẩn gồm `Cache-Control` (ví dụ: `public, max-age=3600`) và `ETag`.
   - Hệ thống phải hỗ trợ xử lý header `If-None-Match` từ phía client và trả về mã trạng thái `304 Not Modified` (không kèm payload) nếu dữ liệu chưa có sự thay đổi.

@@ -1,22 +1,23 @@
-from unittest.mock import patch 
+from unittest.mock import patch
 
-from fastapi.testclient import TestClient 
+from fastapi.testclient import TestClient
 
-from app.main import app 
+from app.main import app
 
 client = TestClient(app)
 
-def test_health_returns_200_when_all_dependencies_are_up() -> None: 
-    # Arrage
+
+def test_health_returns_200_when_all_dependencies_are_up() -> None:
+    # Arrange
     with (
-        patch("app.main.check_db_connection", return_value = True),
-        patch("app.main.check_redis_connection", return_value = True),
+        patch("app.main.check_db_connection", return_value=True),
+        patch("app.main.check_redis_connection", return_value=True),
     ):
-        # Act 
+        # Act
         response = client.get("/health")
 
-    # Assert 
-    assert response.status_code == 200 
+    # Assert
+    assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
         "dependencies": {
@@ -25,17 +26,18 @@ def test_health_returns_200_when_all_dependencies_are_up() -> None:
         },
     }
 
-def test_health_returns_503_when_database_is_down() -> None: 
+
+def test_health_returns_503_when_database_is_down() -> None:
     # Arrange
-    with(
-        patch("app.main.check_db_connection", return_value = False),
+    with (
+        patch("app.main.check_db_connection", return_value=False),
         patch("app.main.check_redis_connection", return_value=True),
     ):
-        # Act 
+        # Act
         response = client.get("/health")
 
     # Assert
-    assert response.status_code == 503 
+    assert response.status_code == 503
     assert response.json() == {
         "status": "degraded",
         "dependencies": {
@@ -44,17 +46,18 @@ def test_health_returns_503_when_database_is_down() -> None:
         },
     }
 
-def test_health_returns_503_when_redis_is_down() -> None: 
+
+def test_health_returns_503_when_redis_is_down() -> None:
     # Arrange
-    with(
-        patch("app.main.check_db_connection", return_value = True),
+    with (
+        patch("app.main.check_db_connection", return_value=True),
         patch("app.main.check_redis_connection", return_value=False),
     ):
-        # Act 
+        # Act
         response = client.get("/health")
 
     # Assert
-    assert response.status_code == 503 
+    assert response.status_code == 503
     assert response.json() == {
         "status": "degraded",
         "dependencies": {

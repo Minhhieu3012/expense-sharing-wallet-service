@@ -3,7 +3,7 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.SQL_ECHO,
-    pool_pre_ping=True,  # Tu dong kiem tra dead connect truoc khi cap request, tranh loi disconnect dot ngot khi DB restart
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
@@ -23,13 +23,8 @@ SessionLocal = sessionmaker(
 )
 
 
-class Base(DeclarativeBase):
-    # Cho toan bo SQLAlchemy ORM models
-    pass
-
-
 def get_db() -> Generator[Session, None, None]:
-    # Dependency cung cap DB session cho moi http request va close sau khi xong
+    """Dependency cung cấp DB session cho mỗi HTTP request và đảm bảo đóng sau khi xong."""
     db = SessionLocal()
     try:
         yield db
@@ -38,11 +33,11 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def check_db_connection() -> bool:
-    # Query de xac minh PostgreSQL ready
+    """Thực thi truy vấn nhẹ SELECT 1 để xác minh PostgreSQL sẵn sàng."""
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return True
     except SQLAlchemyError:
-        logger.exception("Khong the ket noi toi PostgreSQL khi kiem tra health")
+        logger.exception("Không thể kết nối tới PostgreSQL khi kiểm tra health.")
         return False

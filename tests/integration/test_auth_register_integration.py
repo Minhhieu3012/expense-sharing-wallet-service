@@ -193,6 +193,96 @@ def test_register_duplicate_email_returns_409_conflict(
         assert len(wallets) == 1
 
 
+def test_register_strips_whitespace_and_lowercases_email_before_saving(
+    test_db_override: Engine,
+) -> None:
+    # Arrange
+    client = TestClient(app)
+    expected_email = f"trimmed.user{TEST_EMAIL_DOMAIN}"
+
+    # Act: gửi email kèm khoảng trắng/tab hai đầu và chữ hoa
+    first_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"  \tTrimmed.User{TEST_EMAIL_DOMAIN.upper()} \n ",
+            "password": "StrongPassword@123",
+            "full_name": "  Người Dùng Có Khoảng Trắng  ",
+        },
+    )
+
+    # Assert: lưu và trả về đúng email đã chuẩn hóa
+    assert first_response.status_code == 201
+    assert first_response.json()["user"]["email"] == expected_email
+    assert first_response.json()["user"]["full_name"] == "Người Dùng Có Khoảng Trắng"
+
+    with Session(test_db_override) as verify_session:
+        db_user = verify_session.scalar(
+            select(User).where(User.email == expected_email)
+        )
+        assert db_user is not None
+        assert db_user.email == expected_email
+
+    # Đăng ký lại bằng bản đã chuẩn hóa phải trả về 409 Conflict
+    duplicate_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": expected_email,
+            "password": "AnotherPassword@456",
+            "full_name": "Duplicate After Trim",
+        },
+    )
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json()["error"]["code"] == "EMAIL_ALREADY_EXISTS"
+
+
+def test_register_handles_postgres_unique_violation_race_condition_as_409(
+    test_db_override: Engine,
+) -> None:
+    # Arrange: tạo sẵn 1 user hợp lệ trong PostgreSQL
+    client = TestClient(app)
+    email = f"race.pg.unique{TEST_EMAIL_DOMAIN}"
+
+    first_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": "StrongPassword@123",
+            "full_name": "First Concurrent User",
+        },
+    )
+    assert first_response.status_code == 201
+
+    # Act: giả lập 2 request đến cùng mili-giây khiến pre-check SELECT trả về None,
+    # buộc INSERT INTO users chạm trực tiếp ràng buộc UNIQUE (uq_users_email) của PostgreSQL.
+    with patch.object(Session, "scalar", return_value=None):
+        race_response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": f"  {email.upper()}  ",
+                "password": "SecondPassword@456",
+                "full_name": "Second Concurrent User",
+            },
+        )
+
+    # Assert: IntegrityError thật từ PostgreSQL được rollback và ánh xạ sang 409 Conflict chuẩn
+    assert race_response.status_code == 409
+    assert race_response.json() == {
+        "error": {
+            "code": "EMAIL_ALREADY_EXISTS",
+            "message": "Email đã được sử dụng trong hệ thống.",
+            "details": {"email": email},
+        }
+    }
+
+    with Session(test_db_override) as verify_session:
+        users = verify_session.scalars(select(User).where(User.email == email)).all()
+        assert len(users) == 1
+        wallets = verify_session.scalars(
+            select(Wallet).where(Wallet.user_id == users[0].id)
+        ).all()
+        assert len(wallets) == 1
+
+
 def test_register_invalid_email_returns_422_standard_error_envelope(
     test_db_override: Engine,
 ) -> None:

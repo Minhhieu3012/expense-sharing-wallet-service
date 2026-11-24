@@ -14,6 +14,15 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=1, max_length=150)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def strip_email_whitespace(cls, value: object) -> object:
+        # Cắt khoảng trắng hai đầu trước khi EmailStr kiểm tra định dạng
+        # để không phụ thuộc vào hành vi mặc định của từng phiên bản email-validator.
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
     @field_validator("email", mode="after")
     @classmethod
     def normalize_email(cls, value: EmailStr) -> str:

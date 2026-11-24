@@ -17,9 +17,9 @@ from app.schemas.auth import (
 
 
 def test_register_request_normalizes_email_and_full_name() -> None:
-    # Act
+    # Act: kiểm tra cắt khoảng trắng/tab/newline hai đầu và chuẩn hóa email về chữ thường
     payload = RegisterRequest(
-        email="Guest.User@Example.COM",
+        email="  \tGuest.User@Example.COM \n ",
         password="StrongPassword@123",
         full_name="  Nguyễn Văn A  ",
     )

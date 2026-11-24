@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import check_db_connection, engine
 from app.core.exceptions import AppException
@@ -143,6 +144,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 register_exception_handlers(app)
+app.include_router(api_router)
 
 
 @app.get("/health", tags=["Health"])

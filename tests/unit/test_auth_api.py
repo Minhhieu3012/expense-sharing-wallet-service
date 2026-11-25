@@ -1,11 +1,19 @@
 import uuid
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
 from app.core.database import get_db
+from app.core.jwt import (
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+    decode_refresh_token,
+    get_access_token_expires_in,
+)
+from app.core.security import hash_password
 from app.main import app
 from app.models.user import User
 from app.models.wallet import Wallet
@@ -130,3 +138,159 @@ def test_post_register_returns_422_on_invalid_payload_without_leaking_password()
     fields = {item["field"] for item in body["error"]["details"]}
     assert fields == {"body.email", "body.password", "body.full_name"}
     assert "123" not in str(body["error"]["details"])
+
+
+def test_post_login_returns_200_with_valid_jwt_pair() -> None:
+    # Arrange
+    user_id = uuid.uuid4()
+    stored_user = User(
+        id=user_id,
+        email="guest@example.com",
+        password_hash=hash_password("StrongPassword@123"),
+        full_name="Nguyễn Văn A",
+    )
+    fake_db = MagicMock()
+    fake_db.scalar.return_value = stored_user
+
+    def override_get_db() -> Generator[MagicMock, None, None]:
+        yield fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    try:
+        # Act: endpoint [Auth: Public], không gửi Authorization header
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "  Guest@Example.COM ",
+                "password": "StrongPassword@123",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # Assert
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {
+        "access_token",
+        "refresh_token",
+        "token_type",
+        "expires_in",
+    }
+    assert body["token_type"] == "bearer"
+    assert body["expires_in"] == get_access_token_expires_in()
+    assert decode_access_token(body["access_token"])["sub"] == str(user_id)
+    assert decode_refresh_token(body["refresh_token"])["sub"] == str(user_id)
+
+
+def test_post_login_returns_401_on_invalid_credentials() -> None:
+    # Arrange
+    fake_db = MagicMock()
+    fake_db.scalar.return_value = None
+
+    def override_get_db() -> Generator[MagicMock, None, None]:
+        yield fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    try:
+        # Act
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "unknown@example.com",
+                "password": "WrongPassword@123",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # Assert
+    assert response.status_code == 401
+    assert response.json() == {
+        "error": {
+            "code": "INVALID_CREDENTIALS",
+            "message": "Email hoặc mật khẩu không chính xác.",
+            "details": None,
+        }
+    }
+
+
+def test_post_refresh_returns_200_with_new_access_token_only() -> None:
+    # Arrange
+    user_id = uuid.uuid4()
+    refresh_token = create_refresh_token(user_id)
+    fake_db = MagicMock()
+    fake_db.scalar.return_value = user_id
+
+    def override_get_db() -> Generator[MagicMock, None, None]:
+        yield fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    try:
+        # Act
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # Assert: stateless response chỉ trả access_token, token_type, expires_in
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body.keys()) == {"access_token", "token_type", "expires_in"}
+    assert "refresh_token" not in body
+    assert body["token_type"] == "bearer"
+    assert body["expires_in"] == get_access_token_expires_in()
+    assert decode_access_token(body["access_token"])["sub"] == str(user_id)
+
+
+def test_post_refresh_returns_401_for_access_token_or_expired_refresh_token() -> None:
+    # Arrange
+    user_id = uuid.uuid4()
+    access_token = create_access_token(user_id)
+    expired_refresh = create_refresh_token(
+        user_id,
+        expires_delta=timedelta(seconds=-5),
+    )
+    fake_db = MagicMock()
+
+    def override_get_db() -> Generator[MagicMock, None, None]:
+        yield fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+
+    try:
+        # Act
+        res_wrong_type = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": access_token},
+        )
+        res_expired = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": expired_refresh},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # Assert
+    assert res_wrong_type.status_code == 401
+    assert res_wrong_type.json()["error"]["code"] == "INVALID_TOKEN_TYPE"
+
+    assert res_expired.status_code == 401
+    assert res_expired.json()["error"]["code"] == "TOKEN_EXPIRED"
+
+
+def test_post_refresh_returns_422_when_refresh_token_blank() -> None:
+    client = TestClient(app)
+    response = client.post("/api/v1/auth/refresh", json={"refresh_token": "   "})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

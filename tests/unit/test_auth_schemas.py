@@ -9,6 +9,10 @@ from pydantic import ValidationError
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
     RegisterRequest,
     RegisterResponse,
     UserResponse,
@@ -158,3 +162,54 @@ def test_user_response_converts_naive_datetime_to_iso_8601_utc() -> None:
 
     dumped = user.model_dump(mode="json")
     assert dumped["created_at"] == "2026-11-18T10:00:00Z"
+
+
+def test_login_request_normalizes_email_and_rejects_invalid_inputs() -> None:
+    payload = LoginRequest(
+        email="  \tGuest@Example.COM \n ",
+        password="StrongPassword@123",
+    )
+    assert payload.email == "guest@example.com"
+    assert payload.password == "StrongPassword@123"
+
+    for bad_data in [
+        {"email": "invalid-email", "password": "StrongPassword@123"},
+        {"email": "guest@example.com", "password": ""},
+        {"email": "guest@example.com", "password": "   "},
+    ]:
+        with pytest.raises(ValidationError):
+            LoginRequest(**bad_data)
+
+
+def test_login_response_matches_api_contract() -> None:
+    res = LoginResponse(
+        access_token="eyJ.access.token",
+        refresh_token="eyJ.refresh.token",
+        expires_in=1800,
+    )
+    assert res.model_dump(mode="json") == {
+        "access_token": "eyJ.access.token",
+        "refresh_token": "eyJ.refresh.token",
+        "token_type": "bearer",
+        "expires_in": 1800,
+    }
+
+
+def test_refresh_token_request_and_stateless_response_match_api_contract() -> None:
+    req = RefreshTokenRequest(refresh_token="  eyJ.valid.refresh  ")
+    assert req.refresh_token == "eyJ.valid.refresh"
+
+    with pytest.raises(ValidationError):
+        RefreshTokenRequest(refresh_token="   ")
+
+    res = RefreshTokenResponse(
+        access_token="eyJ.new.access.token",
+        expires_in=1800,
+    )
+    dumped = res.model_dump(mode="json")
+    assert dumped == {
+        "access_token": "eyJ.new.access.token",
+        "token_type": "bearer",
+        "expires_in": 1800,
+    }
+    assert "refresh_token" not in dumped

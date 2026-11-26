@@ -4,9 +4,24 @@ from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated
 
-from pydantic import PlainSerializer, WithJsonSchema
+from pydantic import EmailStr, PlainSerializer, WithJsonSchema
 
 TWO_DECIMAL_PLACES = Decimal("0.01")
+
+
+def strip_email_whitespace(value: object) -> object:
+    """Cắt khoảng trắng hai đầu trước khi EmailStr kiểm tra định dạng."""
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def normalize_email(value: EmailStr) -> str:
+    """Chuẩn hóa email về chữ thường và kiểm tra giới hạn độ dài cột DB."""
+    normalized = str(value).strip().lower()
+    if len(normalized) > 255:
+        raise ValueError("Email không được vượt quá 255 ký tự.")
+    return normalized
 
 
 def format_money(value: Decimal) -> str:
@@ -55,4 +70,6 @@ __all__ = [
     "UTCDatetime",
     "format_money",
     "format_utc_datetime",
+    "normalize_email",
+    "strip_email_whitespace",
 ]

@@ -9,8 +9,20 @@ from app.schemas.auth import (
     WalletSummaryResponse,
 )
 from app.schemas.common import MoneyDecimal, UTCDatetime
+from app.schemas.group import (
+    GroupCreateRequest,
+    GroupMemberAddRequest,
+    GroupMemberResponse,
+    GroupResponse,
+    GroupRole,
+)
 
 __all__ = [
+    "GroupCreateRequest",
+    "GroupMemberAddRequest",
+    "GroupMemberResponse",
+    "GroupResponse",
+    "GroupRole",
     "LoginRequest",
     "LoginResponse",
     "MoneyDecimal",

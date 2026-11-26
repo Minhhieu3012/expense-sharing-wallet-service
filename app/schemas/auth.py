@@ -5,22 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.schemas.common import MoneyDecimal, UTCDatetime
-
-
-def _strip_email_whitespace(value: object) -> object:
-    """Cắt khoảng trắng hai đầu trước khi EmailStr kiểm tra định dạng."""
-    if isinstance(value, str):
-        return value.strip()
-    return value
-
-
-def _normalize_email(value: EmailStr) -> str:
-    """Chuẩn hóa email về chữ thường và kiểm tra giới hạn độ dài cột DB."""
-    normalized = str(value).strip().lower()
-    if len(normalized) > 255:
-        raise ValueError("Email không được vượt quá 255 ký tự.")
-    return normalized
+from app.schemas.common import (
+    MoneyDecimal,
+    UTCDatetime,
+    normalize_email as _normalize_email,
+    strip_email_whitespace as _strip_email_whitespace,
+)
 
 
 class RegisterRequest(BaseModel):

@@ -4,6 +4,12 @@ from app.services.authorization import (
     require_group_admin,
     require_group_member,
 )
+from app.services.category_service import (
+    CATEGORIES_CACHE_CONTROL,
+    generate_categories_etag,
+    is_etag_match,
+    list_categories_with_etag,
+)
 from app.services.group_service import (
     add_group_member,
     create_group,
@@ -12,10 +18,14 @@ from app.services.group_service import (
 )
 
 __all__ = [
+    "CATEGORIES_CACHE_CONTROL",
     "add_group_member",
     "create_group",
+    "generate_categories_etag",
     "get_group_membership",
     "get_member_unsettled_pairwise_debts",
+    "is_etag_match",
+    "list_categories_with_etag",
     "login_user",
     "refresh_access_token",
     "register_user",

@@ -8,6 +8,7 @@ from app.schemas.auth import (
     UserResponse,
     WalletSummaryResponse,
 )
+from app.schemas.category import CategoryListResponse, CategoryResponse
 from app.schemas.common import MoneyDecimal, UTCDatetime
 from app.schemas.group import (
     GroupCreateRequest,
@@ -18,6 +19,8 @@ from app.schemas.group import (
 )
 
 __all__ = [
+    "CategoryListResponse",
+    "CategoryResponse",
     "GroupCreateRequest",
     "GroupMemberAddRequest",
     "GroupMemberResponse",
